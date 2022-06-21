@@ -1,0 +1,45 @@
+version: '3.3'
+services:
+  daskscheduler:
+    image: 192.168.1.226:5000/daskscheduler
+    build: ./daskscheduler/
+    hostname: daskscheduler
+    ports:
+      - 8786:8786
+      - 8787:8787
+    environment:
+      - TZ= "America/Denver"
+    command: ["dask-scheduler"]
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
+
+  daskworker:
+    image: 192.168.1.226:5000/daskworker
+    build: ./daskworker/
+    command: ["dask-worker", "tcp://daskscheduler:8786"]
+    environment:
+      - TZ= "America/Denver"
+    # For Docker swarm you can specify multiple workers, this is ignored by `docker-compose up`
+    deploy:
+      # https://docs.docker.com/engine/swarm/how-swarm-mode-works/services/#replicated-and-global-services
+      mode: global # run one task on each node
+    depends_on:
+      - daskscheduler
+
+  dasknotebook:
+    image: 192.168.1.226:5000/dasknotebook
+    build: ./dasknotebook/
+    hostname: dasknotebook
+    ports:
+      - 8888:8888
+    environment:
+      - DASK_SCHEDULER_ADDRESS="tcp://daskscheduler:8786"
+      - TZ= "America/Denver"
+    volumes:
+      - ./dasknotebook/work/:/work
+    deploy:
+      placement:
+        constraints:
+          - node.role == manager
